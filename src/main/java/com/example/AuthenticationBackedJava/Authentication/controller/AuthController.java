@@ -288,4 +288,280 @@ public class AuthController {
                 .body(Map.of("error", "Profile fetch failed", "message", e.getMessage()));
         }
     }
+
+    // Add these methods to your AuthController class
+
+    @PostMapping("/api/auth/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+
+            if (email == null || email.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Email is required", "message", "Please provide a valid email address"));
+            }
+
+            // Check if user exists
+            if (!userService.existsByEmail(email)) {
+                // For security reasons, don't reveal if email exists or not
+                return ResponseEntity.ok()
+                    .body(Map.of("message", "If the email exists, a password reset link has been sent"));
+            }
+
+            // In a real application, you would:
+            // 1. Generate a secure reset token
+            // 2. Store it in database with expiration time
+            // 3. Send email with reset link
+
+            // For demo purposes, we'll just simulate the process
+            String resetToken = generatePasswordResetToken(email);
+
+            log.info("Password reset requested for email: {}", email);
+
+            // Here you would typically send an email
+            // emailService.sendPasswordResetEmail(email, resetToken);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "If the email exists, a password reset link has been sent");
+            response.put("resetToken", resetToken); // Only for demo - remove in production
+            response.put("resetLink", "http://localhost:3000/reset-password?token=" + resetToken); // Demo only
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error during forgot password request", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Forgot password failed", "message", "An error occurred while processing your request"));
+        }
+    }
+
+    @PostMapping("/api/auth/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody Map<String, String> request) {
+        try {
+            String token = request.get("token");
+            String newPassword = request.get("newPassword");
+            String confirmPassword = request.get("confirmPassword");
+
+            if (token == null || token.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Reset token is required", "message", "Invalid or missing reset token"));
+            }
+
+            if (newPassword == null || newPassword.length() < 6) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Invalid password", "message", "Password must be at least 6 characters long"));
+            }
+
+            if (!newPassword.equals(confirmPassword)) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Password mismatch", "message", "Passwords do not match"));
+            }
+
+            // Validate reset token and extract email
+            String email = validatePasswordResetToken(token);
+            if (email == null) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Invalid token", "message", "Reset token is invalid or expired"));
+            }
+
+            // Reset the password
+            userService.resetPassword(email, newPassword);
+
+            log.info("Password reset successful for email: {}", email);
+
+            return ResponseEntity.ok()
+                .body(Map.of("message", "Password has been reset successfully. You can now login with your new password."));
+
+        } catch (Exception e) {
+            log.error("Error during password reset", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Password reset failed", "message", "An error occurred while resetting your password"));
+        }
+    }
+
+    @PostMapping("/api/auth/verify-email")
+    public ResponseEntity<?> verifyEmail(@Valid @RequestBody Map<String, String> request) {
+        try {
+            String token = request.get("token");
+            String email = request.get("email");
+
+            if (token == null || token.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Verification token is required", "message", "Invalid or missing verification token"));
+            }
+
+            // Validate verification token
+            if (!validateEmailVerificationToken(token, email)) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Invalid token", "message", "Verification token is invalid or expired"));
+            }
+
+            // Find user and verify email
+            User user = userService.findByEmail(email);
+            if (user.getEmailVerified()) {
+                return ResponseEntity.ok()
+                    .body(Map.of("message", "Email is already verified"));
+            }
+
+            // Mark email as verified
+            user.setEmailVerified(true);
+            userService.updateUser(user.getId(), new RegisterRequest(
+                user.getUsername(), user.getEmail(), null, user.getFirstName(), user.getLastName()
+            ));
+
+            log.info("Email verification successful for: {}", email);
+
+            return ResponseEntity.ok()
+                .body(Map.of("message", "Email has been verified successfully. You can now access all features."));
+
+        } catch (Exception e) {
+            log.error("Error during email verification", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Email verification failed", "message", "An error occurred while verifying your email"));
+        }
+    }
+
+    @PostMapping("/api/auth/resend-verification")
+    public ResponseEntity<?> resendVerificationEmail(@Valid @RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+
+            if (email == null || email.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Email is required", "message", "Please provide a valid email address"));
+            }
+
+            if (!userService.existsByEmail(email)) {
+                // For security reasons, don't reveal if email exists or not
+                return ResponseEntity.ok()
+                    .body(Map.of("message", "If the email exists, a new verification link has been sent"));
+            }
+
+            User user = userService.findByEmail(email);
+            if (user.getEmailVerified()) {
+                return ResponseEntity.ok()
+                    .body(Map.of("message", "Email is already verified"));
+            }
+
+            // Generate new verification token
+            String verificationToken = generateEmailVerificationToken(email);
+
+            log.info("Email verification resent for: {}", email);
+
+            // Here you would typically send an email
+            // emailService.sendVerificationEmail(email, verificationToken);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "If the email exists, a new verification link has been sent");
+            response.put("verificationToken", verificationToken); // Only for demo - remove in production
+            response.put("verificationLink", "http://localhost:3000/verify-email?token=" + verificationToken + "&email=" + email); // Demo only
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error during resend verification", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Resend verification failed", "message", "An error occurred while sending verification email"));
+        }
+    }
+
+    @PostMapping("/api/auth/change-password")
+    public ResponseEntity<?> changePassword(HttpServletRequest request, @Valid @RequestBody Map<String, String> requestBody) {
+        try {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "No token provided", "message", "Authorization header is required"));
+            }
+
+            String token = authHeader.substring(7);
+            String username = jwtUtil.extractUsername(token);
+
+            if (username == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid token", "message", "Please login again"));
+            }
+
+            String currentPassword = requestBody.get("currentPassword");
+            String newPassword = requestBody.get("newPassword");
+            String confirmPassword = requestBody.get("confirmPassword");
+
+            if (currentPassword == null || newPassword == null || confirmPassword == null) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Missing required fields", "message", "Current password, new password, and confirm password are required"));
+            }
+
+            if (newPassword.length() < 6) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Invalid password", "message", "New password must be at least 6 characters long"));
+            }
+
+            if (!newPassword.equals(confirmPassword)) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Password mismatch", "message", "New passwords do not match"));
+            }
+
+            // Change password
+            boolean success = userService.changePassword(username, currentPassword, newPassword);
+            if (!success) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Invalid current password", "message", "The current password you entered is incorrect"));
+            }
+
+            log.info("Password changed successfully for user: {}", username);
+
+            return ResponseEntity.ok()
+                .body(Map.of("message", "Password has been changed successfully"));
+
+        } catch (Exception e) {
+            log.error("Error during password change", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Password change failed", "message", "An error occurred while changing your password"));
+        }
+    }
+
+    // Helper methods for token generation and validation
+    // In a real application, these would be more sophisticated with proper crypto and database storage
+
+    private String generatePasswordResetToken(String email) {
+        // In production, use a secure random token generator and store in database with expiration
+        return jwtUtil.generateToken(
+            org.springframework.security.core.userdetails.User.withUsername(email)
+                .password("")
+                .authorities("ROLE_RESET")
+                .build(),
+            0L
+        );
+    }
+
+    private String validatePasswordResetToken(String token) {
+        try {
+            Claims claims = jwtUtil.extractAllClaims(token);
+            return claims.getSubject(); // email
+        } catch (Exception e) {
+            log.warn("Invalid password reset token: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private String generateEmailVerificationToken(String email) {
+        // In production, use a secure random token generator and store in database with expiration
+        return jwtUtil.generateToken(
+            org.springframework.security.core.userdetails.User.withUsername(email)
+                .password("")
+                .authorities("ROLE_VERIFY")
+                .build(),
+            0L
+        );
+    }
+
+    private boolean validateEmailVerificationToken(String token, String email) {
+        try {
+            Claims claims = jwtUtil.extractAllClaims(token);
+            return email.equals(claims.getSubject());
+        } catch (Exception e) {
+            log.warn("Invalid email verification token: {}", e.getMessage());
+            return false;
+        }
+    }
 }

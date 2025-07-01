@@ -84,7 +84,9 @@ public class SecurityConfig {
                     "/api/auth/profile",  // Add this line
                     "/api/auth/profile-manual",  // Add this line
                     "/api/auth/forgot-password",
+                    "/api/auth/change-password",
                     "/api/auth/reset-password",
+                    "/api/auth/resend-verification",
                     "/api/auth/verify-email",
                     "/api/auth/logout",
                     "/api/public/**",
