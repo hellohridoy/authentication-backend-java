@@ -88,6 +88,8 @@ public class SecurityConfig {
                     "/api/auth/reset-password",
                     "/api/auth/resend-verification",
                     "/api/auth/verify-email",
+                    "/api/auth/social/login",           // ✅ Add this
+                    "/api/auth/social/providers",       // ✅ Add this
                     "/api/auth/logout",
                     "/api/public/**",
                     "/api/test/**"  // Add this for testing

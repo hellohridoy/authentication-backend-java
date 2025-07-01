@@ -4,6 +4,8 @@ import com.example.AuthenticationBackedJava.Authentication.components.JwtUtil;
 import com.example.AuthenticationBackedJava.Authentication.dto.LoginRequest;
 import com.example.AuthenticationBackedJava.Authentication.dto.LoginResponse;
 import com.example.AuthenticationBackedJava.Authentication.dto.RegisterRequest;
+import com.example.AuthenticationBackedJava.Authentication.dto.social.SocialLoginRequest;
+import com.example.AuthenticationBackedJava.Authentication.dto.social.SocialUserInfo;
 import com.example.AuthenticationBackedJava.Authentication.entity.User;
 import com.example.AuthenticationBackedJava.Authentication.service.JwtBlacklistService;
 import com.example.AuthenticationBackedJava.Authentication.service.UserService;
@@ -518,6 +520,175 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Password change failed", "message", "An error occurred while changing your password"));
         }
+    }
+
+
+    @PostMapping("/api/auth/social/login")
+    public ResponseEntity<?> socialLogin(@Valid @RequestBody SocialLoginRequest socialRequest) {
+        try {
+            log.info("Social login attempt with provider: {}", socialRequest.getProvider());
+
+            // Validate the social token (optional - if you want server-side validation)
+            SocialUserInfo socialUserInfo = validateSocialToken(socialRequest);
+
+            if (socialUserInfo == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid social token", "message", "Failed to validate social authentication"));
+            }
+
+            // Check if user exists by email
+            User existingUser = null;
+            boolean isNewUser = false;
+
+            try {
+                existingUser = userService.findByEmail(socialUserInfo.getEmail());
+            } catch (Exception e) {
+                // User doesn't exist, we'll create a new one
+                isNewUser = true;
+            }
+
+            if (existingUser == null && socialUserInfo.getEmail() != null) {
+                // Create new user from social info
+                existingUser = createUserFromSocialInfo(socialUserInfo);
+                isNewUser = true;
+                log.info("Created new user from social login: {}", existingUser.getEmail());
+            }
+
+            if (existingUser == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Registration failed", "message", "Unable to create user from social information"));
+            }
+
+            // Generate JWT tokens
+            UserDetails userDetails = userService.loadUserByUsername(existingUser.getUsername());
+            String accessToken = jwtUtil.generateToken(userDetails, existingUser.getId());
+            String refreshToken = jwtUtil.generateRefreshToken(userDetails, existingUser.getId());
+
+            // Create response
+            Map<String, Object> response = new HashMap<>();
+            response.put("accessToken", accessToken);
+            response.put("refreshToken", refreshToken);
+            response.put("tokenType", "Bearer");
+            response.put("expiresIn", jwtUtil.getExpirationTime());
+            response.put("userId", existingUser.getId());
+            response.put("username", existingUser.getUsername());
+            response.put("email", existingUser.getEmail());
+            response.put("roles", existingUser.getRoleNames());
+            response.put("isNewUser", isNewUser);
+            response.put("provider", socialUserInfo.getProvider());
+            response.put("socialUserInfo", socialUserInfo);
+
+            log.info("Social login successful for user: {}", existingUser.getEmail());
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Social login failed for provider: {}", socialRequest.getProvider(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Social login failed", "message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/auth/social/providers")
+    public ResponseEntity<?> getSupportedProviders() {
+        Map<String, Object> providers = new HashMap<>();
+        providers.put("google", Map.of("name", "Google", "enabled", true));
+        providers.put("github", Map.of("name", "GitHub", "enabled", true));
+        providers.put("facebook", Map.of("name", "Facebook", "enabled", true));
+
+        return ResponseEntity.ok(Map.of("providers", providers));
+    }
+
+    // Helper method to validate social token (optional)
+    private SocialUserInfo validateSocialToken(SocialLoginRequest request) {
+        try {
+            // For demo purposes, we'll trust the frontend validation
+            // In production, you might want to validate the token with the provider
+
+            return SocialUserInfo.builder()
+                .providerId(request.getProviderId())
+                .provider(request.getProvider())
+                .email(request.getEmail())
+                .name(request.getName())
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .avatarUrl(request.getAvatarUrl())
+                .username(generateUsernameFromEmail(request.getEmail()))
+                .emailVerified(true) // Social logins are typically pre-verified
+                .build();
+
+        } catch (Exception e) {
+            log.error("Failed to validate social token", e);
+            return null;
+        }
+    }
+
+    // Helper method to create user from social info
+    private User createUserFromSocialInfo(SocialUserInfo socialInfo) {
+        try {
+            RegisterRequest registerRequest = new RegisterRequest();
+            registerRequest.setEmail(socialInfo.getEmail());
+            registerRequest.setUsername(generateUniqueUsername(socialInfo));
+            registerRequest.setPassword(generateRandomPassword()); // Social users don't need password
+            registerRequest.setFirstName(socialInfo.getFirstName() != null ? socialInfo.getFirstName() : "");
+            registerRequest.setLastName(socialInfo.getLastName() != null ? socialInfo.getLastName() : "");
+
+            User user = userService.createUser(registerRequest);
+
+            // Mark as email verified since it comes from social provider
+            user.setEmailVerified(true);
+
+            // You might want to store additional social info
+            // user.setSocialProvider(socialInfo.getProvider());
+            // user.setSocialProviderId(socialInfo.getProviderId());
+            // user.setAvatarUrl(socialInfo.getAvatarUrl());
+
+            return user;
+
+        } catch (Exception e) {
+            log.error("Failed to create user from social info", e);
+            throw new RuntimeException("Failed to create user from social information", e);
+        }
+    }
+
+    // Helper method to generate unique username
+    private String generateUniqueUsername(SocialUserInfo socialInfo) {
+        String baseUsername = socialInfo.getUsername();
+
+        if (baseUsername == null || baseUsername.trim().isEmpty()) {
+            baseUsername = generateUsernameFromEmail(socialInfo.getEmail());
+        }
+
+        // Make sure username is unique
+        String username = baseUsername;
+        int counter = 1;
+
+        while (userService.existsByUsername(username)) {
+            username = baseUsername + counter;
+            counter++;
+        }
+
+        return username;
+    }
+
+    // Helper method to generate username from email
+    private String generateUsernameFromEmail(String email) {
+        if (email == null) return "user" + System.currentTimeMillis();
+
+        String username = email.split("@")[0];
+        // Remove any non-alphanumeric characters
+        username = username.replaceAll("[^a-zA-Z0-9]", "");
+
+        if (username.length() < 3) {
+            username = "user" + username;
+        }
+
+        return username.toLowerCase();
+    }
+
+    // Helper method to generate random password for social users
+    private String generateRandomPassword() {
+        // Generate a secure random password since social users don't use passwords
+        return java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16);
     }
 
     // Helper methods for token generation and validation
