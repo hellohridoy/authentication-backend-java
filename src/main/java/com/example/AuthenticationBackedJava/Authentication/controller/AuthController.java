@@ -11,6 +11,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,25 +29,21 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    private final AuthenticationManager authenticationManager;
 
-    @Autowired
-    private UserService userService;
+    private final  UserService userService;
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    private final  JwtUtil jwtUtil;
 
-    @Autowired
-    private JwtBlacklistService jwtBlacklistService;
+    private final  JwtBlacklistService jwtBlacklistService;
 
-    @PostMapping("/register")
+    @PostMapping("/api/auth/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest registerRequest) {
         try {
             // Check if user already exists
@@ -78,7 +75,7 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/login")
+    @PostMapping("/api/auth/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest) {
         try {
             // Authenticate user
@@ -120,7 +117,7 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/logout")
+    @PostMapping("/api/auth/logout")
     public ResponseEntity<?> logout(HttpServletRequest request) {
         try {
             // Extract token from Authorization header
@@ -169,7 +166,7 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/refresh-token")
+    @PostMapping("/api/auth/refresh-token")
     public ResponseEntity<?> refreshToken(HttpServletRequest request) {
         try {
             String authHeader = request.getHeader("Authorization");
@@ -204,7 +201,7 @@ public class AuthController {
         }
     }
 
-    @GetMapping("/profile")
+    @GetMapping("/api/auth/profile")
     public ResponseEntity<?> getUserProfile(HttpServletRequest request) {
         try {
             String authHeader = request.getHeader("Authorization");
@@ -234,6 +231,59 @@ public class AuthController {
             }
         } catch (Exception e) {
             log.error("Error fetching user profile", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Profile fetch failed", "message", e.getMessage()));
+        }
+    }
+
+    // Add this method to your AuthController as a temporary test
+
+    @GetMapping("/api/auth/profile-manual")
+    public ResponseEntity<?> getUserProfileManual(HttpServletRequest request) {
+        try {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "No token provided", "message", "Authorization header is required"));
+            }
+
+            String token = authHeader.substring(7);
+            log.info("Received token: {}", token.substring(0, Math.min(token.length(), 20)) + "...");
+
+            String username = jwtUtil.extractUsername(token);
+            log.info("Extracted username: {}", username);
+
+            if (username != null) {
+                UserDetails userDetails = userService.loadUserByUsername(username);
+                log.info("Loaded user details: {}", userDetails.getUsername());
+
+                if (jwtUtil.isTokenValid(token, userDetails)) {
+                    log.info("Token is valid for user: {}", username);
+
+                    User user = userService.findByUsername(username);
+
+                    Map<String, Object> profile = new HashMap<>();
+                    profile.put("userId", user.getId());
+                    profile.put("username", user.getUsername());
+                    profile.put("email", user.getEmail());
+                    profile.put("roles", user.getRoleNames());
+                    profile.put("createdAt", user.getCreatedAt());
+                    profile.put("updatedAt", user.getUpdatedAt());
+                    profile.put("note", "Manual JWT processing - not using filter");
+
+                    return ResponseEntity.ok(profile);
+                } else {
+                    log.warn("Token is invalid for user: {}", username);
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Invalid token", "message", "Token validation failed"));
+                }
+            } else {
+                log.warn("No username found in token");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid token", "message", "No username in token"));
+            }
+        } catch (Exception e) {
+            log.error("Error in manual profile fetch", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Profile fetch failed", "message", e.getMessage()));
         }
