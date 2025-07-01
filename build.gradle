@@ -39,12 +39,12 @@ dependencies {
 
     // Redis for JWT token blacklisting
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-
-    // Optional: For manual JWT handling
+    implementation 'org.springframework.security:spring-security-config:6.2.0'    // Optional: For manual JWT handling
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
-
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
     implementation 'com.nimbusds:oauth2-oidc-sdk:11.9.1'
 

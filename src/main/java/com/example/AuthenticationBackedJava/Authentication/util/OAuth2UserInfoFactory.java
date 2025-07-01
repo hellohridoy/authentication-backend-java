@@ -3,7 +3,6 @@ package com.example.AuthenticationBackedJava.Authentication.util;
 import com.example.AuthenticationBackedJava.Authentication.entity.AuthProvider;
 
 import com.example.AuthenticationBackedJava.Authentication.exceptions.ResourceNotFoundException;
-import com.example.AuthenticationBackedJava.Authentication.util.OAuth2UserInfo;
 
 import java.util.Map;
 
