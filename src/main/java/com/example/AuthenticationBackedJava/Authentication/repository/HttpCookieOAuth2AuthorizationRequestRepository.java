@@ -1,4 +1,4 @@
-package com.example.AuthenticationBackedJava.Authentication.components;
+package com.example.AuthenticationBackedJava.Authentication.repository;
 
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 import jakarta.servlet.http.Cookie;

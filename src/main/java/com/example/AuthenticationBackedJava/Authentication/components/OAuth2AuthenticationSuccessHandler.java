@@ -1,5 +1,6 @@
 package com.example.AuthenticationBackedJava.Authentication.components;
 
+import com.example.AuthenticationBackedJava.Authentication.repository.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.example.AuthenticationBackedJava.Authentication.util.CookieUtils;
 import com.example.AuthenticationBackedJava.Authentication.util.JwtTokenProvider;
 import jakarta.servlet.ServletException;
@@ -18,7 +19,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
-import static com.example.AuthenticationBackedJava.Authentication.components.HttpCookieOAuth2AuthorizationRequestRepository.REDIRECT_URI_PARAM_COOKIE_NAME;
+import static com.example.AuthenticationBackedJava.Authentication.repository.HttpCookieOAuth2AuthorizationRequestRepository.REDIRECT_URI_PARAM_COOKIE_NAME;
 
 @Component
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {

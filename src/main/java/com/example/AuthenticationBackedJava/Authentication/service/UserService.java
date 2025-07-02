@@ -1,6 +1,7 @@
 package com.example.AuthenticationBackedJava.Authentication.service;
 
 import com.example.AuthenticationBackedJava.Authentication.dto.RegisterRequest;
+import com.example.AuthenticationBackedJava.Authentication.dto.UserCoreInfoDto;
 import com.example.AuthenticationBackedJava.Authentication.entity.User;
 import com.example.AuthenticationBackedJava.Authentication.enums.Role;
 import com.example.AuthenticationBackedJava.Authentication.repository.UserRepository;
@@ -166,6 +167,61 @@ public class UserService implements UserDetailsService {
 
         return userRepository.save(user);
     }
+
+    public User updateUserCoreInfo(Long userId, UserCoreInfoDto dto) {
+        User user = findById(userId); // Throws exception if user not found
+
+        if (dto.getUserName() != null && !dto.getUserName().equals(user.getUsername())) {
+            if (existsByUsername(dto.getUserName())) {
+                throw new RuntimeException("Username already exists: " + dto.getUserName());
+            }
+            user.setUsername(dto.getUserName());
+        }
+
+        if (dto.getEmail() != null && !dto.getEmail().equals(user.getEmail())) {
+            if (existsByEmail(dto.getEmail())) {
+                throw new RuntimeException("Email already exists: " + dto.getEmail());
+            }
+            user.setEmail(dto.getEmail());
+        }
+
+        if (dto.getFirstName() != null) {
+            user.setFirstName(dto.getFirstName());
+        }
+
+        if (dto.getLastName() != null) {
+            user.setLastName(dto.getLastName());
+        }
+
+        if (dto.getImageUrl() != null) {
+            user.setImageUrl(dto.getImageUrl());
+        }
+
+        if (dto.getRole() != null && !user.getRoles().contains(dto.getRole())) {
+            user.getRoles().clear(); // Optional: If you want only 1 role
+            user.addRole(dto.getRole());
+        }
+
+        return userRepository.save(user);
+    }
+
+    public List<UserCoreInfoDto> getAllUserCoreInfo() {
+        return userRepository.findAll().stream()
+            .map(this::mapToCoreInfoDto)
+            .toList();
+    }
+
+    private UserCoreInfoDto mapToCoreInfoDto(User user) {
+        return new UserCoreInfoDto(
+            user.getUsername(),
+            user.getEmail(),
+            user.getFirstName(),
+            user.getLastName(),
+            user.getImageUrl(), // Assuming `image` is the field name
+            user.getRoles().stream().findFirst().orElse(null) // assuming single-role user
+        );
+    }
+
 
     public User addRoleToUser(Long userId, Role role) {
         User user = findById(userId);

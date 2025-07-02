@@ -1,4 +1,4 @@
-package com.example.AuthenticationBackedJava.Authentication.components;
+package com.example.AuthenticationBackedJava.Authentication.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

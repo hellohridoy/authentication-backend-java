@@ -1,6 +1,5 @@
 package com.example.AuthenticationBackedJava.Authentication.util;
 
-import com.example.AuthenticationBackedJava.Authentication.components.JwtUtil;
 import com.example.AuthenticationBackedJava.Authentication.service.JwtBlacklistService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;

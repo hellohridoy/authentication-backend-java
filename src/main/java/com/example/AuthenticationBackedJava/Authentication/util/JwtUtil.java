@@ -1,4 +1,4 @@
-package com.example.AuthenticationBackedJava.Authentication.components;
+package com.example.AuthenticationBackedJava.Authentication.util;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

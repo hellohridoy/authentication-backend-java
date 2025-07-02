@@ -91,6 +91,8 @@ public class SecurityConfig {
                     "/api/auth/social/login",           // ✅ Add this
                     "/api/auth/social/providers",       // ✅ Add this
                     "/api/auth/logout",
+                    "/api/v1/users/user-core-info",
+                    "/api/v1/users/user-core-info/**",
                     "/api/public/**",
                     "/api/test/**"  // Add this for testing
                 ).permitAll()

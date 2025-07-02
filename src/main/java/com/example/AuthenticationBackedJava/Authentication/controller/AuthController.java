@@ -1,6 +1,6 @@
 package com.example.AuthenticationBackedJava.Authentication.controller;
 
-import com.example.AuthenticationBackedJava.Authentication.components.JwtUtil;
+import com.example.AuthenticationBackedJava.Authentication.util.JwtUtil;
 import com.example.AuthenticationBackedJava.Authentication.dto.LoginRequest;
 import com.example.AuthenticationBackedJava.Authentication.dto.LoginResponse;
 import com.example.AuthenticationBackedJava.Authentication.dto.RegisterRequest;
@@ -16,7 +16,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
