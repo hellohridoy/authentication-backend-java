@@ -139,40 +139,45 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Allow specific origins (update with your frontend URLs)
+        // Allow localhost applications during development
         configuration.setAllowedOriginPatterns(Arrays.asList(
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://localhost:4200",
-            "http://localhost:8080",
-            "https://your-frontend-domain.com"
+                "http://localhost:*",
+                "https://localhost:*",
+                "https://your-frontend-domain.com"
         ));
 
-        // Allow all HTTP methods
+        // Allow HTTP methods
         configuration.setAllowedMethods(Arrays.asList(
-            "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH",
+                "OPTIONS"
         ));
 
         // Allow all headers
         configuration.setAllowedHeaders(Arrays.asList("*"));
 
-        // Allow credentials (cookies, authorization headers)
+        // Allow credentials
         configuration.setAllowCredentials(true);
 
-        // Cache preflight requests for 1 hour
+        // Cache preflight request for 1 hour
         configuration.setMaxAge(3600L);
 
-        // Expose authorization header to frontend
+        // Expose required response headers
         configuration.setExposedHeaders(Arrays.asList(
-            "Authorization",
-            "Access-Control-Allow-Origin",
-            "Access-Control-Allow-Credentials"
+                "Authorization"
         ));
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 }
