@@ -100,6 +100,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleGlobalException(
         Exception ex, WebRequest request) {
 
+        ex.printStackTrace(); // Added for debugging
+
         ErrorResponse errorResponse = new ErrorResponse(
             HttpStatus.INTERNAL_SERVER_ERROR.value(),
             "An unexpected error occurred",
