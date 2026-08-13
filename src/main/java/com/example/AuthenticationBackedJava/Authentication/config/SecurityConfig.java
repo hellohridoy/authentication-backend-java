@@ -3,6 +3,7 @@ package com.example.AuthenticationBackedJava.Authentication.config;
 import com.example.AuthenticationBackedJava.Authentication.components.JwtAuthenticationEntryPoint;
 import com.example.AuthenticationBackedJava.Authentication.service.UserService;
 import com.example.AuthenticationBackedJava.Authentication.util.JwtBlacklistFilter;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,23 +28,22 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 
 @Configuration
+@RequiredArgsConstructor
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
-    @Autowired
-    private UserService userService;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final UserService userService;
 
-    @Autowired(required = false)  // Make it optional to see if it exists
+    private final PasswordEncoder passwordEncoder;
+
+    @Autowired(required = false)
     private JwtBlacklistFilter jwtAuthenticationFilter;
 
-    @Autowired
-    private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
