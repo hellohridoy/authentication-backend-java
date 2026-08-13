@@ -10,6 +10,9 @@ import com.example.AuthenticationBackedJava.Authentication.entity.User;
 import com.example.AuthenticationBackedJava.Authentication.service.JwtBlacklistService;
 import com.example.AuthenticationBackedJava.Authentication.service.UserService;
 import com.example.AuthenticationBackedJava.Authentication.validation.PasswordValidator;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +35,7 @@ import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
+@Tag(name = "Authentication", description = "Register, login, logout, token management, password reset, email verification, and social login")
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
@@ -44,6 +48,7 @@ public class AuthController {
 
     private final  JwtBlacklistService jwtBlacklistService;
 
+    @Operation(summary = "Register a new user", description = "Creates a new account and returns JWT tokens immediately")
     @PostMapping("/api/auth/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest registerRequest) {
         try {
@@ -83,6 +88,7 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "Login", description = "Authenticate with username and password, returns JWT tokens")
     @PostMapping("/api/auth/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest) {
         try {
@@ -125,6 +131,8 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "Logout", description = "Invalidates the current access token by adding it to the blacklist")
+    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/api/auth/logout")
     public ResponseEntity<?> logout(HttpServletRequest request) {
         try {
@@ -174,6 +182,8 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "Refresh access token", description = "Exchange a valid refresh token for a new access token")
+    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/api/auth/refresh-token")
     public ResponseEntity<?> refreshToken(HttpServletRequest request) {
         try {
@@ -209,6 +219,8 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "Get current user profile", description = "Returns profile of the authenticated user")
+    @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/api/auth/profile")
     public ResponseEntity<?> getUserProfile(HttpServletRequest request) {
         try {
@@ -244,6 +256,7 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "Forgot password", description = "Sends a password reset link to the provided email")
     @PostMapping("/api/auth/forgot-password")
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody Map<String, String> request) {
         try {
@@ -284,6 +297,7 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "Reset password", description = "Resets user password using a valid reset token")
     @PostMapping("/api/auth/reset-password")
     public ResponseEntity<?> resetPassword(@Valid @RequestBody Map<String, String> request) {
         try {
@@ -328,6 +342,7 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "Verify email", description = "Confirms email address using a verification token")
     @PostMapping("/api/auth/verify-email")
     public ResponseEntity<?> verifyEmail(@Valid @RequestBody Map<String, String> request) {
         try {
@@ -370,6 +385,7 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "Resend verification email", description = "Sends a new email verification link")
     @PostMapping("/api/auth/resend-verification")
     public ResponseEntity<?> resendVerificationEmail(@Valid @RequestBody Map<String, String> request) {
         try {
@@ -410,6 +426,8 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "Change password", description = "Changes password for the authenticated user")
+    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/api/auth/change-password")
     public ResponseEntity<?> changePassword(HttpServletRequest request, @Valid @RequestBody Map<String, String> requestBody) {
         try {
@@ -462,6 +480,7 @@ public class AuthController {
     }
 
 
+    @Operation(summary = "Social login", description = "Login or register via Google, GitHub, or Facebook")
     @PostMapping("/api/auth/social/login")
     public ResponseEntity<?> socialLogin(@Valid @RequestBody SocialLoginRequest socialRequest) {
         try {
@@ -527,6 +546,7 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "List social providers", description = "Returns the list of supported OAuth2 providers")
     @GetMapping("/api/auth/social/providers")
     public ResponseEntity<?> getSupportedProviders() {
         Map<String, Object> providers = new HashMap<>();
