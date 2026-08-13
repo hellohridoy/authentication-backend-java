@@ -81,18 +81,14 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/auth/login",
                     "/api/auth/register",
-                    "/api/auth/profile",  // Add this line
-                    "/api/auth/profile-manual",  // Add this line
                     "/api/auth/forgot-password",
-                    "/api/auth/change-password",
                     "/api/auth/reset-password",
-                    "/api/auth/resend-verification",
                     "/api/auth/verify-email",
-                    "/api/auth/social/login",           // ✅ Add this
-                    "/api/auth/social/providers",       // ✅ Add this
-                    "/api/auth/logout",
+                    "/api/auth/resend-verification",
+                    "/api/auth/social/login",
+                    "/api/auth/social/providers",
                     "/api/public/**",
-                    "/api/test/**"  // Add this for testing
+                    "/api/test/**"
                 ).permitAll()
 
                 // Swagger/OpenAPI endpoints
@@ -104,21 +100,14 @@ public class SecurityConfig {
                 ).permitAll()
 
                 // Actuator endpoints (for health checks, metrics)
-                .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers("/actuator/**").hasRole("ADMIN")
 
                 // Admin endpoints - require ADMIN role
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                 // Manager endpoints - require MANAGER or ADMIN role
                 .requestMatchers("/api/manager/**").hasAnyRole("MANAGER", "ADMIN")
-
-                // User profile endpoints - require authentication
-                .requestMatchers(
-                    "/api/auth/profile",
-                    "/api/auth/logout",
-                    "/api/auth/refresh-token",
-                    "/api/auth/change-password"
-                ).authenticated()
 
                 // All other endpoints require authentication
                 .anyRequest().authenticated()

@@ -16,7 +16,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -32,7 +31,6 @@ import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
@@ -48,6 +46,19 @@ public class AuthController {
     @PostMapping("/api/auth/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest registerRequest) {
         try {
+            // Password strength validation
+            String pwd = registerRequest.getPassword();
+            if (pwd == null || pwd.length() < 8
+                    || !pwd.matches(".*[A-Z].*")
+                    || !pwd.matches(".*[a-z].*")
+                    || !pwd.matches(".*\\d.*")
+                    || !pwd.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*")) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Weak password",
+                    "message", "Password must be at least 8 characters and include uppercase, lowercase, digit, and special character"
+                ));
+            }
+
             // Check if user already exists
             if (userService.existsByEmail(registerRequest.getEmail())) {
                 return ResponseEntity.badRequest()
@@ -62,18 +73,32 @@ public class AuthController {
             // Create new user
             User user = userService.createUser(registerRequest);
 
+            // Generate tokens immediately on registration
+            UserDetails userDetails = userService.loadUserByUsername(user.getUsername());
+            String accessToken = jwtUtil.generateToken(userDetails, user.getId());
+            String refreshToken = jwtUtil.generateRefreshToken(userDetails, user.getId());
+
             Map<String, Object> response = new HashMap<>();
             response.put("message", "User registered successfully");
             response.put("userId", user.getId());
             response.put("username", user.getUsername());
             response.put("email", user.getEmail());
+            response.put("firstName", user.getFirstName());
+            response.put("lastName", user.getLastName());
+            response.put("roles", user.getRoleNames());
+            response.put("access_token", accessToken);
+            response.put("refresh_token", refreshToken);
+            response.put("token_type", "Bearer");
+            response.put("expires_in", jwtUtil.getExpirationTime());
+            response.put("refresh_expires_in", jwtUtil.getRefreshExpirationTime());
 
+            log.info("User registered successfully: {}", user.getUsername());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (Exception e) {
             log.error("Error during user registration", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Registration failed", "message", e.getMessage()));
+                .body(Map.of("error", "Registration failed", "message", "An error occurred during registration"));
         }
     }
 
@@ -238,61 +263,6 @@ public class AuthController {
         }
     }
 
-    // Add this method to your AuthController as a temporary test
-
-    @GetMapping("/api/auth/profile-manual")
-    public ResponseEntity<?> getUserProfileManual(HttpServletRequest request) {
-        try {
-            String authHeader = request.getHeader("Authorization");
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "No token provided", "message", "Authorization header is required"));
-            }
-
-            String token = authHeader.substring(7);
-            log.info("Received token: {}", token.substring(0, Math.min(token.length(), 20)) + "...");
-
-            String username = jwtUtil.extractUsername(token);
-            log.info("Extracted username: {}", username);
-
-            if (username != null) {
-                UserDetails userDetails = userService.loadUserByUsername(username);
-                log.info("Loaded user details: {}", userDetails.getUsername());
-
-                if (jwtUtil.isTokenValid(token, userDetails)) {
-                    log.info("Token is valid for user: {}", username);
-
-                    User user = userService.findByUsername(username);
-
-                    Map<String, Object> profile = new HashMap<>();
-                    profile.put("userId", user.getId());
-                    profile.put("username", user.getUsername());
-                    profile.put("email", user.getEmail());
-                    profile.put("roles", user.getRoleNames());
-                    profile.put("createdAt", user.getCreatedAt());
-                    profile.put("updatedAt", user.getUpdatedAt());
-                    profile.put("note", "Manual JWT processing - not using filter");
-
-                    return ResponseEntity.ok(profile);
-                } else {
-                    log.warn("Token is invalid for user: {}", username);
-                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Invalid token", "message", "Token validation failed"));
-                }
-            } else {
-                log.warn("No username found in token");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Invalid token", "message", "No username in token"));
-            }
-        } catch (Exception e) {
-            log.error("Error in manual profile fetch", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Profile fetch failed", "message", e.getMessage()));
-        }
-    }
-
-    // Add these methods to your AuthController class
-
     @PostMapping("/api/auth/forgot-password")
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody Map<String, String> request) {
         try {
@@ -320,15 +290,11 @@ public class AuthController {
 
             log.info("Password reset requested for email: {}", email);
 
-            // Here you would typically send an email
-            // emailService.sendPasswordResetEmail(email, resetToken);
+            // emailService.sendPasswordResetEmail(email, resetToken);  // TODO: wire up email service
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "If the email exists, a password reset link has been sent");
-            response.put("resetToken", resetToken); // Only for demo - remove in production
-            response.put("resetLink", "http://localhost:3000/reset-password?token=" + resetToken); // Demo only
-
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(Map.of(
+                "message", "If the email exists, a password reset link has been sent"
+            ));
 
         } catch (Exception e) {
             log.error("Error during forgot password request", e);
@@ -349,9 +315,13 @@ public class AuthController {
                     .body(Map.of("error", "Reset token is required", "message", "Invalid or missing reset token"));
             }
 
-            if (newPassword == null || newPassword.length() < 6) {
+            if (newPassword == null || newPassword.length() < 8
+                    || !newPassword.matches(".*[A-Z].*")
+                    || !newPassword.matches(".*[a-z].*")
+                    || !newPassword.matches(".*\\d.*")
+                    || !newPassword.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*")) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Invalid password", "message", "Password must be at least 6 characters long"));
+                    .body(Map.of("error", "Weak password", "message", "Password must be at least 8 characters and include uppercase, lowercase, digit, and special character"));
             }
 
             if (!newPassword.equals(confirmPassword)) {
@@ -450,15 +420,11 @@ public class AuthController {
 
             log.info("Email verification resent for: {}", email);
 
-            // Here you would typically send an email
-            // emailService.sendVerificationEmail(email, verificationToken);
+            // emailService.sendVerificationEmail(email, verificationToken);  // TODO: wire up email service
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "If the email exists, a new verification link has been sent");
-            response.put("verificationToken", verificationToken); // Only for demo - remove in production
-            response.put("verificationLink", "http://localhost:3000/verify-email?token=" + verificationToken + "&email=" + email); // Demo only
-
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(Map.of(
+                "message", "If the email exists, a new verification link has been sent"
+            ));
 
         } catch (Exception e) {
             log.error("Error during resend verification", e);
@@ -493,9 +459,13 @@ public class AuthController {
                     .body(Map.of("error", "Missing required fields", "message", "Current password, new password, and confirm password are required"));
             }
 
-            if (newPassword.length() < 6) {
+            if (newPassword.length() < 8
+                    || !newPassword.matches(".*[A-Z].*")
+                    || !newPassword.matches(".*[a-z].*")
+                    || !newPassword.matches(".*\\d.*")
+                    || !newPassword.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*")) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Invalid password", "message", "New password must be at least 6 characters long"));
+                    .body(Map.of("error", "Weak password", "message", "New password must be at least 8 characters and include uppercase, lowercase, digit, and special character"));
             }
 
             if (!newPassword.equals(confirmPassword)) {
