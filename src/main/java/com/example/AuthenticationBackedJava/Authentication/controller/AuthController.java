@@ -9,6 +9,7 @@ import com.example.AuthenticationBackedJava.Authentication.dto.social.SocialUser
 import com.example.AuthenticationBackedJava.Authentication.entity.User;
 import com.example.AuthenticationBackedJava.Authentication.service.JwtBlacklistService;
 import com.example.AuthenticationBackedJava.Authentication.service.UserService;
+import com.example.AuthenticationBackedJava.Authentication.validation.PasswordValidator;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,34 +47,8 @@ public class AuthController {
     @PostMapping("/api/auth/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest registerRequest) {
         try {
-            // Password strength validation
-            String pwd = registerRequest.getPassword();
-            if (pwd == null || pwd.length() < 8
-                    || !pwd.matches(".*[A-Z].*")
-                    || !pwd.matches(".*[a-z].*")
-                    || !pwd.matches(".*\\d.*")
-                    || !pwd.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*")) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "error", "Weak password",
-                    "message", "Password must be at least 8 characters and include uppercase, lowercase, digit, and special character"
-                ));
-            }
-
-            // Check if user already exists
-            if (userService.existsByEmail(registerRequest.getEmail())) {
-                return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Email already registered", "message", "Please use a different email"));
-            }
-
-            if (userService.existsByUsername(registerRequest.getUsername())) {
-                return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Username already taken", "message", "Please choose a different username"));
-            }
-
-            // Create new user
             User user = userService.createUser(registerRequest);
 
-            // Generate tokens immediately on registration
             UserDetails userDetails = userService.loadUserByUsername(user.getUsername());
             String accessToken = jwtUtil.generateToken(userDetails, user.getId());
             String refreshToken = jwtUtil.generateRefreshToken(userDetails, user.getId());
@@ -95,6 +70,12 @@ public class AuthController {
             log.info("User registered successfully: {}", user.getUsername());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
+        } catch (PasswordValidator.PasswordValidationException e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Weak password", "message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Registration failed", "message", e.getMessage()));
         } catch (Exception e) {
             log.error("Error during user registration", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -315,13 +296,9 @@ public class AuthController {
                     .body(Map.of("error", "Reset token is required", "message", "Invalid or missing reset token"));
             }
 
-            if (newPassword == null || newPassword.length() < 8
-                    || !newPassword.matches(".*[A-Z].*")
-                    || !newPassword.matches(".*[a-z].*")
-                    || !newPassword.matches(".*\\d.*")
-                    || !newPassword.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*")) {
+            if (newPassword == null || confirmPassword == null || newPassword.isBlank()) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Weak password", "message", "Password must be at least 8 characters and include uppercase, lowercase, digit, and special character"));
+                    .body(Map.of("error", "Invalid password", "message", "New password and confirm password are required"));
             }
 
             if (!newPassword.equals(confirmPassword)) {
@@ -336,13 +313,13 @@ public class AuthController {
                     .body(Map.of("error", "Invalid token", "message", "Reset token is invalid or expired"));
             }
 
-            // Reset the password
             userService.resetPassword(email, newPassword);
-
             log.info("Password reset successful for email: {}", email);
+            return ResponseEntity.ok(Map.of("message", "Password has been reset successfully. You can now login with your new password."));
 
-            return ResponseEntity.ok()
-                .body(Map.of("message", "Password has been reset successfully. You can now login with your new password."));
+        } catch (PasswordValidator.PasswordValidationException e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Weak password", "message", e.getMessage()));
 
         } catch (Exception e) {
             log.error("Error during password reset", e);
@@ -459,21 +436,11 @@ public class AuthController {
                     .body(Map.of("error", "Missing required fields", "message", "Current password, new password, and confirm password are required"));
             }
 
-            if (newPassword.length() < 8
-                    || !newPassword.matches(".*[A-Z].*")
-                    || !newPassword.matches(".*[a-z].*")
-                    || !newPassword.matches(".*\\d.*")
-                    || !newPassword.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*")) {
-                return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Weak password", "message", "New password must be at least 8 characters and include uppercase, lowercase, digit, and special character"));
-            }
-
             if (!newPassword.equals(confirmPassword)) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("error", "Password mismatch", "message", "New passwords do not match"));
             }
 
-            // Change password
             boolean success = userService.changePassword(username, currentPassword, newPassword);
             if (!success) {
                 return ResponseEntity.badRequest()
@@ -481,9 +448,11 @@ public class AuthController {
             }
 
             log.info("Password changed successfully for user: {}", username);
+            return ResponseEntity.ok(Map.of("message", "Password has been changed successfully"));
 
-            return ResponseEntity.ok()
-                .body(Map.of("message", "Password has been changed successfully"));
+        } catch (PasswordValidator.PasswordValidationException e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Weak password", "message", e.getMessage()));
 
         } catch (Exception e) {
             log.error("Error during password change", e);

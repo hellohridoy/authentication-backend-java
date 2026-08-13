@@ -4,6 +4,7 @@ import com.example.AuthenticationBackedJava.Authentication.dto.RegisterRequest;
 import com.example.AuthenticationBackedJava.Authentication.entity.User;
 import com.example.AuthenticationBackedJava.Authentication.enums.Role;
 import com.example.AuthenticationBackedJava.Authentication.repository.UserRepository;
+import com.example.AuthenticationBackedJava.Authentication.validation.PasswordValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,9 @@ public class UserService implements UserDetailsService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private PasswordValidator passwordValidator;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -67,27 +71,24 @@ public class UserService implements UserDetailsService {
     public User createUser(RegisterRequest registerRequest) {
         log.info("Creating new user with username: {}", registerRequest.getUsername());
 
-        // Check if user already exists
+        // Business rule: validate password strength
+        passwordValidator.validate(registerRequest.getPassword());
+
+        // Business rule: uniqueness checks
         if (existsByUsername(registerRequest.getUsername())) {
-            throw new RuntimeException("Username already exists: " + registerRequest.getUsername());
+            throw new IllegalArgumentException("Username already taken");
         }
-
         if (existsByEmail(registerRequest.getEmail())) {
-            throw new RuntimeException("Email already exists: " + registerRequest.getEmail());
+            throw new IllegalArgumentException("Email already registered");
         }
 
-        // Create new user
         User user = new User();
         user.setUsername(registerRequest.getUsername());
         user.setEmail(registerRequest.getEmail());
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
         user.setFirstName(registerRequest.getFirstName());
         user.setLastName(registerRequest.getLastName());
-
-        // Set default role
         user.addRole(Role.USER);
-
-        // Set default account status
         user.setIsEnabled(true);
         user.setIsAccountNonExpired(true);
         user.setIsAccountNonLocked(true);
@@ -95,7 +96,6 @@ public class UserService implements UserDetailsService {
 
         User savedUser = userRepository.save(user);
         log.info("User created successfully with ID: {}", savedUser.getId());
-
         return savedUser;
     }
 
@@ -228,20 +228,23 @@ public class UserService implements UserDetailsService {
     public boolean changePassword(String username, String oldPassword, String newPassword) {
         User user = findByUsername(username);
 
-        // Verify old password
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             return false;
         }
 
-        // Update password
+        // Business rule: validate new password strength
+        passwordValidator.validate(newPassword);
+
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
-
         log.info("Password changed successfully for user: {}", username);
         return true;
     }
 
     public void resetPassword(String email, String newPassword) {
+        // Business rule: validate new password strength
+        passwordValidator.validate(newPassword);
+
         User user = findByEmail(email);
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
