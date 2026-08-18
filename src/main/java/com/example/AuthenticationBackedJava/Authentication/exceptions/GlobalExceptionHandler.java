@@ -1,6 +1,6 @@
-package com.example.AuthenticationBackedJava.Authentication.exception;
+package com.example.AuthenticationBackedJava.Authentication.exceptions;
 
-import com.example.AuthenticationBackedJava.Authentication.exceptions.ResourceNotFoundException;
+import com.example.AuthenticationBackedJava.Authentication.dto.ErrorResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -19,49 +19,49 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
+    public ResponseEntity<ErrorResponseDTO> handleResourceNotFoundException(
         ResourceNotFoundException ex, WebRequest request) {
 
-        ErrorResponse errorResponse = new ErrorResponse(
+        ErrorResponseDTO ErrorResponseDTO = new ErrorResponseDTO(
             HttpStatus.NOT_FOUND.value(),
             ex.getMessage(),
             LocalDateTime.now(),
             request.getDescription(false)
         );
 
-        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>(ErrorResponseDTO, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentialsException(
+    public ResponseEntity<ErrorResponseDTO> handleBadCredentialsException(
         BadCredentialsException ex, WebRequest request) {
 
-        ErrorResponse errorResponse = new ErrorResponse(
+        ErrorResponseDTO ErrorResponseDTO = new ErrorResponseDTO(
             HttpStatus.UNAUTHORIZED.value(),
             "Invalid email or password",
             LocalDateTime.now(),
             request.getDescription(false)
         );
 
-        return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
+        return new ResponseEntity<>(ErrorResponseDTO, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(UsernameNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleUsernameNotFoundException(
+    public ResponseEntity<ErrorResponseDTO> handleUsernameNotFoundException(
         UsernameNotFoundException ex, WebRequest request) {
 
-        ErrorResponse errorResponse = new ErrorResponse(
+        ErrorResponseDTO ErrorResponseDTO = new ErrorResponseDTO(
             HttpStatus.NOT_FOUND.value(),
             ex.getMessage(),
             LocalDateTime.now(),
             request.getDescription(false)
         );
 
-        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>(ErrorResponseDTO, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationExceptions(
+    public ResponseEntity<ErrorResponseDTO> handleValidationExceptions(
         MethodArgumentNotValidException ex, WebRequest request) {
 
         Map<String, String> errors = new HashMap<>();
@@ -71,101 +71,44 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
-        ErrorResponse errorResponse = new ErrorResponse(
+        ErrorResponseDTO ErrorResponseDTO = new ErrorResponseDTO(
             HttpStatus.BAD_REQUEST.value(),
             "Validation failed",
             LocalDateTime.now(),
             request.getDescription(false)
         );
-        errorResponse.setValidationErrors(errors);
+        ErrorResponseDTO.setValidationErrors(errors);
 
-        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(ErrorResponseDTO, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
+    public ResponseEntity<ErrorResponseDTO> handleIllegalArgumentException(
         IllegalArgumentException ex, WebRequest request) {
 
-        ErrorResponse errorResponse = new ErrorResponse(
+        ErrorResponseDTO ErrorResponseDTO = new ErrorResponseDTO(
             HttpStatus.BAD_REQUEST.value(),
             ex.getMessage(),
             LocalDateTime.now(),
             request.getDescription(false)
         );
 
-        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(ErrorResponseDTO, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGlobalException(
+    public ResponseEntity<ErrorResponseDTO> handleGlobalException(
         Exception ex, WebRequest request) {
 
-        ex.printStackTrace(); // Added for debugging
+        ex.printStackTrace();
 
-        ErrorResponse errorResponse = new ErrorResponse(
+        ErrorResponseDTO ErrorResponseDTO = new ErrorResponseDTO(
             HttpStatus.INTERNAL_SERVER_ERROR.value(),
             "An unexpected error occurred",
             LocalDateTime.now(),
             request.getDescription(false)
         );
 
-        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    // Error Response DTO
-    public static class ErrorResponse {
-        private int status;
-        private String message;
-        private LocalDateTime timestamp;
-        private String path;
-        private Map<String, String> validationErrors;
-
-        public ErrorResponse(int status, String message, LocalDateTime timestamp, String path) {
-            this.status = status;
-            this.message = message;
-            this.timestamp = timestamp;
-            this.path = path;
-        }
-
-        // Getters and Setters
-        public int getStatus() {
-            return status;
-        }
-
-        public void setStatus(int status) {
-            this.status = status;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public void setMessage(String message) {
-            this.message = message;
-        }
-
-        public LocalDateTime getTimestamp() {
-            return timestamp;
-        }
-
-        public void setTimestamp(LocalDateTime timestamp) {
-            this.timestamp = timestamp;
-        }
-
-        public String getPath() {
-            return path;
-        }
-
-        public void setPath(String path) {
-            this.path = path;
-        }
-
-        public Map<String, String> getValidationErrors() {
-            return validationErrors;
-        }
-
-        public void setValidationErrors(Map<String, String> validationErrors) {
-            this.validationErrors = validationErrors;
-        }
+        return new ResponseEntity<>(ErrorResponseDTO, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

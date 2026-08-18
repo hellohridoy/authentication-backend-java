@@ -41,7 +41,7 @@ public class SecurityConfig {
     private final PasswordEncoder passwordEncoder;
 
     @Autowired(required = false)
-    private JwtBlacklistFilter jwtAuthenticationFilter;
+    private final JwtBlacklistFilter jwtAuthenticationFilter;
 
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
